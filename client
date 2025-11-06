@@ -1,0 +1,62 @@
+import socket
+import os
+import tkinter as tk
+from tkinter import messagebox, scrolledtext
+
+DOWNLOAD_FOLDER = "downloads"
+
+def request_file(ip, port, filename, log_widget):
+    if not os.path.exists(DOWNLOAD_FOLDER):
+        os.makedirs(DOWNLOAD_FOLDER)
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.connect((ip, port))
+        s.send(filename.encode())
+
+        response = s.recv(1024)
+        if response == b"FOUND":
+            with open(os.path.join(DOWNLOAD_FOLDER, filename), "wb") as f:
+                while True:
+                    packet = s.recv(1024)
+                    if not packet:
+                        break
+                    f.write(packet)
+            messagebox.showinfo("Success", f"File '{filename}' downloaded.")
+            log_widget.insert(tk.END, f"[✓] File '{filename}' received from {ip}:{port}\n")
+        else:
+            messagebox.showerror("Not Found", f"File '{filename}' not found on peer.")
+            log_widget.insert(tk.END, f"[✗] File '{filename}' not found on {ip}:{port}\n")
+    except Exception as e:
+        messagebox.showerror("Connection Error", str(e))
+        log_widget.insert(tk.END, f"[!] Connection failed: {e}\n")
+    finally:
+        s.close()
+
+# GUI Setup
+root = tk.Tk()
+root.title("P2P Client")
+root.geometry("500x450")
+
+tk.Label(root, text="Peer-to-Peer File Client", font=("Arial", 14)).pack(pady=10)
+
+tk.Label(root, text="Peer IP:").pack()
+ip_entry = tk.Entry(root)
+ip_entry.pack()
+
+tk.Label(root, text="Port:").pack()
+port_entry = tk.Entry(root)
+port_entry.insert(0, "5000")
+port_entry.pack()
+
+tk.Label(root, text="Filename:").pack()
+filename_entry = tk.Entry(root)
+filename_entry.pack()
+
+tk.Button(root, text="Request File", bg="blue", fg="white",
+          command=lambda: request_file(ip_entry.get(), int(port_entry.get()), filename_entry.get(), log)).pack(pady=10)
+
+log = scrolledtext.ScrolledText(root, height=15)
+log.pack(fill=tk.BOTH, expand=True)
+
+root.mainloop()
